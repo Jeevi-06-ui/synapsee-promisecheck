@@ -1,0 +1,29 @@
+# ==============================================================================
+# CODEOWNERS - Synapsee PromiseCheck Monorepo
+# ==============================================================================
+#
+# Rule 1: Gemini has access to apps/cafe ONLY.
+# Rule 2: Codex has responsibility for apps/promisecheck.
+# Rule 3: Repository Owner / Antigravity owns integration/ and root configuration.
+#
+# Team branch assignments:
+# - Neha: feature/cafe
+# - Jeevith: feature/promisecheck
+# - Likitha: test/integration
+# ==============================================================================
+
+# Global fallback: Repository Owner
+*                   @Jeevi-06-ui
+
+# Root README & Global Config
+/README.md          @Jeevi-06-ui
+/.github/           @Jeevi-06-ui
+
+# Integration Suite
+/integration/       @Jeevi-06-ui
+
+# App 1: Synapsee Café (Gemini scope / Neha)
+/apps/cafe/         @Jeevi-06-ui
+
+# App 2: PromiseCheck Engine (Codex scope / Jeevith)
+/apps/promisecheck/ @Jeevi-06-ui

@@ -1,0 +1,16 @@
+{
+  "name": "synapsee-integration",
+  "version": "1.0.0",
+  "description": "Integration verification suite for Synapsee Café and PromiseCheck",
+  "scripts": {
+    "test": "node tests/e2e-integration.test.js"
+  },
+  "keywords": [
+    "integration",
+    "testing",
+    "tinyfish",
+    "promisecheck"
+  ],
+  "author": "Likitha & Repo Owner",
+  "license": "MIT"
+}

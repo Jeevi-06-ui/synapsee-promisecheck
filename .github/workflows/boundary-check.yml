@@ -1,0 +1,58 @@
+name: Monorepo Boundary Enforcement
+
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  verify-boundary:
+    name: Verify Branch & AI Agent Boundary Scope
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check modified files against branch ownership
+        run: |
+          HEAD_BRANCH="${{ github.head_ref }}"
+          echo "Inspecting pull request from branch: $HEAD_BRANCH"
+
+          # Get changed files compared to base branch
+          CHANGED_FILES=$(git diff --name-only origin/${{ github.base_ref }}...HEAD)
+          echo "Changed files:"
+          echo "$CHANGED_FILES"
+
+          if [[ "$HEAD_BRANCH" == "feature/cafe" ]]; then
+            echo "Checking Neha / Gemini scope: apps/cafe/ ONLY"
+            VIOLATIONS=$(echo "$CHANGED_FILES" | grep -v '^apps/cafe/' || true)
+            if [ -n "$VIOLATIONS" ]; then
+              echo "::error::Branch feature/cafe (Gemini) is restricted to apps/cafe/ only. Unauthorized modifications found:"
+              echo "$VIOLATIONS"
+              exit 1
+            fi
+            echo "Boundary check passed for feature/cafe."
+
+          elif [[ "$HEAD_BRANCH" == "feature/promisecheck" ]]; then
+            echo "Checking Jeevith / Codex scope: apps/promisecheck/ ONLY"
+            VIOLATIONS=$(echo "$CHANGED_FILES" | grep -v '^apps/promisecheck/' || true)
+            if [ -n "$VIOLATIONS" ]; then
+              echo "::error::Branch feature/promisecheck (Codex) is restricted to apps/promisecheck/ only. Unauthorized modifications found:"
+              echo "$VIOLATIONS"
+              exit 1
+            fi
+            echo "Boundary check passed for feature/promisecheck."
+
+          elif [[ "$HEAD_BRANCH" == "test/integration" ]]; then
+            echo "Checking Likitha / Integration scope: integration/ ONLY"
+            VIOLATIONS=$(echo "$CHANGED_FILES" | grep -v '^integration/' || true)
+            if [ -n "$VIOLATIONS" ]; then
+              echo "::error::Branch test/integration is restricted to integration/ only. Unauthorized modifications found:"
+              echo "$VIOLATIONS"
+              exit 1
+            fi
+            echo "Boundary check passed for test/integration."
+          else
+            echo "Standard branch validation completed."
+          fi

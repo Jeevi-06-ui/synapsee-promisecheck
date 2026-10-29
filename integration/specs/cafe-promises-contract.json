@@ -1,0 +1,35 @@
+{
+  "version": "1.0.0",
+  "system": "Synapsee PromiseCheck Integration Contract",
+  "coupling": {
+    "sharedDatabase": false,
+    "directApiIntegration": false,
+    "auditMethod": "Autonomous Web Observation (TinyFish Remote Browser Agent)"
+  },
+  "serviceLevelCommitments": [
+    {
+      "id": "contract-organic-beans",
+      "promise": "100% Organic & Fair-Trade Coffee",
+      "verificationType": "keyword_presence",
+      "expectedMarkers": ["100% Organic", "Fair-Trade"]
+    },
+    {
+      "id": "contract-daily-bakes",
+      "promise": "Fresh Daily Bakes by 7:00 AM",
+      "verificationType": "keyword_presence",
+      "expectedMarkers": ["Fresh Daily Bakes", "7:00 AM"]
+    },
+    {
+      "id": "contract-gf-station",
+      "promise": "Dedicated Gluten-Free Station",
+      "verificationType": "keyword_presence",
+      "expectedMarkers": ["Gluten-Free", "zero cross-contamination"]
+    },
+    {
+      "id": "contract-hours",
+      "promise": "Open 7 Days: 7:00 AM – 9:00 PM",
+      "verificationType": "keyword_presence",
+      "expectedMarkers": ["7:00 AM – 9:00 PM"]
+    }
+  ]
+}

@@ -1,0 +1,19 @@
+{
+  "name": "synapsee-promisecheck",
+  "version": "1.0.0",
+  "description": "Verification engine that uses TinyFish web agents to audit promises on public web applications",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "check": "node src/index.js"
+  },
+  "keywords": [
+    "promisecheck",
+    "tinyfish",
+    "ai-agent",
+    "verification",
+    "codex"
+  ],
+  "author": "Jeevith & Codex",
+  "license": "MIT"
+}

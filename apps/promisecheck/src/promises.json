@@ -1,0 +1,44 @@
+[
+  {
+    "id": "organic-coffee",
+    "title": "100% Organic & Fair-Trade Coffee",
+    "category": "Ingredient Quality",
+    "expectedKeywords": ["100% Organic", "Fair-Trade", "organic beans"],
+    "required": true
+  },
+  {
+    "id": "daily-fresh-bakes",
+    "title": "Fresh Daily Bakes by 7:00 AM",
+    "category": "Preparation",
+    "expectedKeywords": ["Fresh Daily Bakes", "7:00 AM", "baked from scratch"],
+    "required": true
+  },
+  {
+    "id": "gluten-free-station",
+    "title": "Dedicated Gluten-Free Station",
+    "category": "Allergen Safety",
+    "expectedKeywords": ["Gluten-Free", "zero cross-contamination"],
+    "required": true
+  },
+  {
+    "id": "operating-hours",
+    "title": "Open 7 Days: 7:00 AM – 9:00 PM",
+    "category": "Availability",
+    "expectedKeywords": ["7:00 AM – 9:00 PM", "7 Days"],
+    "required": true
+  },
+  {
+    "id": "free-gigabit-wifi",
+    "title": "Complimentary Gigabit Wi-Fi",
+    "category": "Amenities",
+    "expectedKeywords": ["Gigabit Wi-Fi", "fiber internet"],
+    "required": false
+  },
+  {
+    "id": "satisfaction-remake",
+    "title": "100% Satisfaction Remake Guarantee",
+    "category": "Customer Policy",
+    "expectedKeywords": ["Satisfaction", "remake", "refund"],
+    "required": false
+  }
+]
