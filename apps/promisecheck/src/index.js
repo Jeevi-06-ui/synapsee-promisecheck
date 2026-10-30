@@ -1,111 +1,73 @@
 #!/usr/bin/env node
-
-/**
- * PromiseCheck Runner
- * Audits public web applications using TinyFish web agents.
- * 
- * Usage:
- *   node src/index.js --url https://<your-public-cafe-url>
- */
-
+const fs = require('node:fs');
+const path = require('node:path');
 const TinyFishClient = require('./tinyfish-client');
-const promises = require('./promises.json');
+const { outputSchema, buildGoal, evaluateRun } = require('./delivery-audit');
 
-// Parse CLI arguments
-const args = process.argv.slice(2);
-let targetUrl = process.env.CAFE_PUBLIC_URL;
+const appDir = path.resolve(__dirname, '..');
+if (fs.existsSync(path.join(appDir, '.env'))) process.loadEnvFile(path.join(appDir, '.env'));
 
-for (let i = 0; i < args.length; i++) {
-  if (args[i] === '--url' && args[i + 1]) {
-    targetUrl = args[i + 1];
-    i++;
-  }
-}
-
-if (!targetUrl) {
-  // Check default local or tunnel URL
-  targetUrl = 'http://localhost:3000';
-  console.log(`ℹ️  No --url provided. Defaulting to local dev server: ${targetUrl}`);
-  console.log(`💡 Tip: Pass your public tunnel URL: npm run check -- --url https://<your-tunnel>.loca.lt\n`);
-}
-
-async function runAudit() {
-  console.log("================================================================================");
-  console.log("🔍 PromiseCheck Verification Engine (TinyFish Autonomous Agent)");
-  console.log("================================================================================");
-  console.log(`Target Café URL: ${targetUrl}`);
-  console.log(`Timestamp:       ${new Date().toISOString()}`);
-  console.log("--------------------------------------------------------------------------------\n");
-
-  const client = new TinyFishClient();
-
-  try {
-    const pageData = await client.visitAndAudit(targetUrl);
-
-    if (pageData.statusCode !== 200) {
-      console.error(`❌ HTTP Error: Received status ${pageData.statusCode} from ${targetUrl}`);
-      process.exit(1);
+function parseArgs(args) {
+  const options = { url: process.env.CAFE_PUBLIC_URL || 'https://synapsee-promisecheck.vercel.app/',
+    evidence: path.join(appDir, 'evidence', `delivery-${new Date().toISOString().replace(/[:.]/g, '-')}.json`) };
+  for (let i = 0; i < args.length; i++) {
+    if (!['--url', '--evidence', '--run-id'].includes(args[i]) || !args[i + 1] || args[i + 1].startsWith('--')) {
+      throw new Error('Usage: npm run check -- [--url PUBLIC_URL] [--evidence FILE.json] [--run-id ID]');
     }
+    options[args[i] === '--run-id' ? 'runId' : args[i].slice(2)] = args[++i];
+  }
+  return options;
+}
 
-    console.log(`✅ Page reached successfully (HTTP ${pageData.statusCode}). Auditing claims...\n`);
-
-    const results = [];
-    const pageText = pageData.text || '';
-
-    for (const promise of promises) {
-      const matches = [];
-      for (const keyword of promise.expectedKeywords) {
-        const regex = new RegExp(keyword, 'i');
-        if (regex.test(pageText)) {
-          matches.push(keyword);
+async function main() {
+  const options = parseArgs(process.argv.slice(2));
+  const client = new TinyFishClient();
+  const target = new URL(client.validateUrlReachability(options.url));
+  target.searchParams.set('scenario', 'buggy');
+  const evidencePath = path.resolve(options.evidence);
+  if (fs.existsSync(evidencePath)) throw new Error('Evidence file already exists; choose a new --evidence path to preserve it.');
+  const evidence = { source: 'TinyFish Agent API — real browser interaction', target: target.href,
+    requestedAt: new Date().toISOString(), request: { goal: buildGoal(target.href), output_schema: outputSchema } };
+  const save = () => {
+    fs.mkdirSync(path.dirname(evidencePath), { recursive: true });
+    fs.writeFileSync(evidencePath, client.redact(JSON.stringify(evidence, null, 2)), { mode: 0o600 });
+  };
+  let lastStatus;
+  try {
+    const run = await client.visitAndAudit(target.href, {
+      goal: evidence.request.goal, outputSchema, runId: options.runId,
+      onUpdate: current => {
+        evidence.run = current;
+        save();
+        if (current.status !== lastStatus) {
+          console.log(`TinyFish ${current.run_id}: ${current.status}`);
+          lastStatus = current.status;
         }
       }
-
-      const passed = matches.length > 0;
-      results.push({
-        ...promise,
-        passed,
-        matches,
-        coverage: `${matches.length}/${promise.expectedKeywords.length}`
-      });
-    }
-
-    // Output formatted results table
-    console.log("📋 AUDIT RESULTS:");
-    console.log("--------------------------------------------------------------------------------");
-    let passedCount = 0;
-
-    for (const res of results) {
-      const statusIcon = res.passed ? '✅ PASSED' : '❌ FAILED';
-      if (res.passed) passedCount++;
-
-      console.log(`${statusIcon.padEnd(10)} [${res.category}] ${res.title}`);
-      if (res.passed) {
-        console.log(`           Matched keywords: "${res.matches.join('", "')}"`);
-      } else {
-        console.log(`           Missing expected: "${res.expectedKeywords.join('", "')}"`);
-      }
-    }
-
-    console.log("--------------------------------------------------------------------------------");
-    const score = Math.round((passedCount / results.length) * 100);
-    console.log(`Overall Compliance Score: ${score}% (${passedCount}/${results.length} promises verified)`);
-    console.log("================================================================================\n");
-
-    const failedRequired = results.filter(r => r.required && !r.passed);
-    if (failedRequired.length > 0) {
-      console.error(`❌ Audit FAILED: ${failedRequired.length} required promises were not verified.`);
-      process.exit(1);
-    } else {
-      console.log("🎉 Audit SUCCESSFUL: All core café promises verified by PromiseCheck.");
-      process.exit(0);
-    }
-
+    });
+    evidence.comparison = evaluateRun(run, target.href);
+    evidence.verifiedAt = new Date().toISOString();
+    save();
+    console.table(evidence.comparison.map(row => ({
+      scenario: row.scenario,
+      'expected subtotal': row.expected.subtotal, 'observed subtotal': row.observed.subtotal,
+      'expected delivery': row.expected.delivery, 'observed delivery': row.observed.delivery,
+      'expected total': row.expected.total, 'observed total': row.observed.total,
+      promise: row.compliant ? 'HONORED' : 'VIOLATED'
+    })));
+    console.log(`Amounts in INR. Run evidence: ${evidencePath}`);
+    console.log(`TinyFish steps: ${run.num_of_steps ?? run.steps?.length}`);
+    return evidence.comparison.every(row => row.compliant) ? 0 : 1;
   } catch (error) {
-    console.error(`❌ PromiseCheck encountered an error:`, error.message);
-    process.exit(1);
+    evidence.error = client.redact(error.message);
+    save();
+    console.error(`Audit incomplete: ${evidence.error}\nEvidence: ${evidencePath}`);
+    return 2;
   }
 }
 
-runAudit();
-
+if (require.main === module) main().then(code => { process.exitCode = code; }).catch(error => {
+  console.error(`PromiseCheck: ${error.message}`);
+  process.exitCode = 2;
+});
+module.exports = { main, parseArgs };

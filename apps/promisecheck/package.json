@@ -3,9 +3,11 @@
   "version": "1.0.0",
   "description": "Verification engine that uses TinyFish web agents to audit promises on public web applications",
   "main": "src/index.js",
+  "engines": { "node": ">=22" },
   "scripts": {
     "start": "node src/index.js",
-    "check": "node src/index.js"
+    "check": "node src/index.js",
+    "test": "node --test"
   },
   "keywords": [
     "promisecheck",
