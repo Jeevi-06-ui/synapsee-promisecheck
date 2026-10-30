@@ -58,3 +58,4 @@ The default promise specifications are stored in `src/promises.json`:
 - **Open 7 Days (7:00 AM – 9:00 PM)**
 - **Complimentary Gigabit Wi-Fi**
 - **100% Satisfaction Remake Guarantee**
+
