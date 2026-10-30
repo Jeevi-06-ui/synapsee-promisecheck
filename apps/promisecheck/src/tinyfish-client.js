@@ -1,113 +1,97 @@
-/**
- * TinyFish Web Agent Client
- * Orchestrates remote browser sessions via TinyFish APIs to audit public websites.
- */
+const { setTimeout: delay } = require('node:timers/promises');
 
-const http = require('http');
-const https = require('https');
+// Official Agent API: https://docs.tinyfish.ai/agent-api
+const API_ORIGIN = 'https://agent.tinyfish.ai';
 
 class TinyFishClient {
-  constructor(apiKey = process.env.TINYFISH_API_KEY, endpoint = process.env.TINYFISH_API_ENDPOINT) {
+  constructor({ apiKey = process.env.TINYFISH_API_KEY, fetchImpl = fetch,
+    pollIntervalMs = 5000, timeoutMs = 15 * 60 * 1000 } = {}) {
     this.apiKey = apiKey;
-    this.endpoint = endpoint || 'https://api.tinyfish.ai/v1';
+    this.fetch = fetchImpl;
+    this.pollIntervalMs = pollIntervalMs;
+    this.timeoutMs = timeoutMs;
   }
 
-  /**
-   * Validates whether a target URL is accessible to TinyFish remote browser agents.
-   * Remote browsers in the cloud cannot resolve localhost or 127.0.0.1.
-   */
+  redact(value) {
+    const text = String(value);
+    return this.apiKey ? text.split(this.apiKey).join('[REDACTED]') : text;
+  }
+
   validateUrlReachability(targetUrl) {
-    let parsed;
+    const url = new URL(targetUrl);
+    const host = url.hostname.toLowerCase();
+    if (!['https:', 'http:'].includes(url.protocol) || url.username || url.password ||
+      host === 'localhost' || host.endsWith('.localhost') || host.endsWith('.local') ||
+      host === '0.0.0.0' || host === '[::1]' || /^127\./.test(host) ||
+      /^10\./.test(host) || /^192\.168\./.test(host) || /^172\.(1[6-9]|2\d|3[01])\./.test(host)) {
+      throw new Error('TinyFish requires a public HTTP(S) URL without embedded credentials.');
+    }
+    return url.href;
+  }
+
+  async request(path, { method = 'GET', body } = {}) {
+    if (!this.apiKey?.trim()) {
+      throw new Error('TINYFISH_API_KEY is required. Configure apps/promisecheck/.env or the backend process environment. No HTML fallback is available.');
+    }
+    let response;
     try {
-      parsed = new URL(targetUrl);
+      response = await this.fetch(`${API_ORIGIN}${path}`, {
+        method, redirect: 'error', signal: AbortSignal.timeout(30000),
+        headers: { 'X-API-Key': this.apiKey, ...(body ? { 'Content-Type': 'application/json' } : {}) },
+        ...(body ? { body: JSON.stringify(body) } : {})
+      });
     } catch {
-      throw new Error(`Invalid URL provided: "${targetUrl}". Expected format: https://...`);
+      throw new Error(`TinyFish ${method} request failed or timed out. Do not start a duplicate run; inspect existing runs at https://agent.tinyfish.ai first.`);
     }
-
-    const host = parsed.hostname.toLowerCase();
-    const isLocal = host === 'localhost' || host === '127.0.0.1' || host === '0.0.0.0' || host.endsWith('.local');
-
-    if (isLocal) {
-      console.warn(`\n⚠️  WARNING: Target is "${targetUrl}".`);
-      console.warn(`   TinyFish cloud agents run in remote datacenters and CANNOT connect to your laptop's localhost.`);
-      console.warn(`   To test TinyFish, expose your café via a public tunnel (npm run tunnel in apps/cafe).\n`);
+    let data;
+    try { data = await response.json(); } catch {
+      throw new Error(`TinyFish returned non-JSON (HTTP ${response.status}); no browser result was accepted.`);
     }
-
-    return { isValid: true, isLocal, url: parsed.href };
+    if (!response.ok) {
+      const detail = data.error?.message || data.error?.code || 'request rejected';
+      throw new Error(this.redact(`TinyFish HTTP ${response.status}: ${detail}`));
+    }
+    return data;
   }
 
-  /**
-   * Dispatches TinyFish to visit and audit the specified public URL.
-   * If TINYFISH_API_KEY is configured, calls TinyFish cloud agent API.
-   * Otherwise, runs in agent simulation mode by fetching public HTML.
-   */
-  async visitAndAudit(targetUrl) {
-    const { isLocal, url } = this.validateUrlReachability(targetUrl);
-
-    if (this.apiKey && !isLocal) {
-      return await this._callTinyFishApi(url);
-    }
-
-    // Agent emulation fallback (fetches page content and extracts semantic data)
-    return await this._fetchHtml(url);
+  async getRun(runId) {
+    return this.request(`/v1/runs/${encodeURIComponent(runId)}?screenshots=url`);
   }
 
-  async _callTinyFishApi(url) {
-    console.log(`[TinyFish] Dispatching cloud browser agent to ${url}...`);
-    // TinyFish Agent API integration
-    const payload = JSON.stringify({
-      url: url,
-      actions: ["extract_text", "extract_structured_data", "capture_screenshot"]
-    });
-
-    const options = {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${this.apiKey}`,
-        'Content-Length': Buffer.byteLength(payload)
+  async visitAndAudit(targetUrl, { goal, outputSchema, runId, onUpdate = () => {} }) {
+    const url = this.validateUrlReachability(targetUrl);
+    // Start once, then await in this process. Never retry an ambiguous POST.
+    if (!runId) {
+      const started = await this.request('/v1/automation/run-async', {
+        method: 'POST', body: {
+          url, goal, output_schema: outputSchema, browser_profile: 'lite',
+          capture_config: { screenshots: true, recording: true }
+        }
+      });
+      if (started.error) throw new Error(this.redact(`TinyFish rejected run creation: ${started.error.message || started.error.code}`));
+      if (!started.run_id) throw new Error('TinyFish did not return a run_id; inspect existing runs before retrying.');
+      runId = started.run_id;
+      await onUpdate({ run_id: runId, status: 'PENDING' });
+    }
+    const deadline = Date.now() + this.timeoutMs;
+    while (Date.now() < deadline) {
+      let run;
+      try { run = await this.getRun(runId); } catch (error) {
+        throw new Error(`${error.message} Resume this run with --run-id ${runId}.`);
       }
-    };
-
-    return new Promise((resolve, reject) => {
-      const req = https.request(`${this.endpoint}/agent/audit`, options, (res) => {
-        let data = '';
-        res.on('data', chunk => data += chunk);
-        res.on('end', () => {
-          try {
-            resolve(JSON.parse(data));
-          } catch {
-            resolve({ raw: data, statusCode: res.statusCode });
-          }
-        });
-      });
-      req.on('error', reject);
-      req.write(payload);
-      req.end();
-    });
-  }
-
-  async _fetchHtml(url) {
-    return new Promise((resolve, reject) => {
-      const client = url.startsWith('https') ? https : http;
-      const req = client.get(url, (res) => {
-        let html = '';
-        res.on('data', chunk => html += chunk);
-        res.on('end', () => {
-          resolve({
-            url,
-            statusCode: res.statusCode,
-            html,
-            text: html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ')
-          });
-        });
-      });
-      req.on('error', (err) => {
-        reject(new Error(`Failed to visit café at "${url}": ${err.message}`));
-      });
-    });
+      await onUpdate(run);
+      if (run.status === 'COMPLETED') {
+        if (!run.result || run.result.error || run.result.status === 'failure') {
+          throw new Error(`TinyFish run ${runId} completed without usable observations. Inspect saved evidence.`);
+        }
+        return run;
+      }
+      if (['FAILED', 'CANCELLED'].includes(run.status)) throw new Error(`TinyFish run ${runId}: ${run.status}. Inspect saved evidence.`);
+      if (!['PENDING', 'RUNNING'].includes(run.status)) throw new Error(`Unexpected TinyFish status for run ${runId}.`);
+      await delay(this.pollIntervalMs);
+    }
+    throw new Error(`TinyFish run ${runId} is still active. Resume with --run-id ${runId}; do not launch a duplicate.`);
   }
 }
 
 module.exports = TinyFishClient;
-
