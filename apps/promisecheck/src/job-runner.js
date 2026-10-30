@@ -348,7 +348,48 @@ class JobRunner {
     if (!targetFile) return null;
     const filePath = path.join(this.evidenceDir, targetFile);
     try {
-      return JSON.parse(fs.readFileSync(filePath, 'utf8'));
+      const data = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+      if (!data.id) {
+        data.id = data.run?.run_id || targetFile.replace(/\.json$/, '');
+      }
+      // Normalize legacy delivery comparisons into findings array for consistent dashboard view
+      if (!data.findings && Array.isArray(data.comparison)) {
+        data.findings = data.comparison.map(c => ({
+          journeyId: 'delivery-499',
+          journeyName: 'Journey B: Delivery Boundary Exact (Rs 499)',
+          category: 'delivery',
+          scenario: c.scenario,
+          verdict: c.compliant ? 'PASS' : 'MISMATCH',
+          explanation: c.compliant 
+            ? 'Free delivery honored at inclusive Rs 499 threshold.' 
+            : `Delivery fee violation: expected Rs ${c.expected.delivery}, observed Rs ${c.observed.delivery} (customer overcharge).`,
+          expected: {
+            subtotalRupees: c.expected.subtotal,
+            deliveryRupees: c.expected.delivery,
+            discountRupees: 0,
+            totalRupees: c.expected.total
+          },
+          observed: {
+            subtotal: c.observed.subtotal,
+            delivery: c.observed.delivery,
+            discount: 0,
+            total: c.observed.total,
+            isCheckoutAllowed: true
+          },
+          runId: data.run?.run_id || data.id,
+          mode: data.mode || 'live',
+          assertions: [
+            {
+              name: 'delivery_fee_policy',
+              expected: c.expected.delivery,
+              observed: c.observed.delivery,
+              verdict: c.compliant ? 'PASS' : 'MISMATCH',
+              detail: c.compliant ? 'Delivery fee honored' : `Overcharged by Rs ${c.deliveryDifference}`
+            }
+          ]
+        }));
+      }
+      return data;
     } catch {
       return null;
     }

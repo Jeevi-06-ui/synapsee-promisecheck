@@ -50,6 +50,7 @@ const journeyOutputSchema = object({
 const JOURNEYS = [
   {
     id: 'delivery-498',
+    code: 'D498',
     category: 'delivery',
     name: 'Journey A: Delivery Boundary Below (Rs 498)',
     description: 'Adds 2 Margherita Pizzas (subtotal Rs 498). Evaluates that delivery fee of Rs 40 is charged below the Rs 499 threshold in both modes.',
@@ -86,6 +87,7 @@ Return the observation using the supplied JSON schema.`;
   },
   {
     id: 'delivery-499',
+    code: 'D499',
     category: 'delivery',
     name: 'Journey B: Delivery Boundary Exact (Rs 499)',
     description: 'Adds 2 Margherita Pizzas + 1 Extra Dip (subtotal Rs 499). Evaluates the inclusive free delivery promise (Fixed: Rs 0 delivery vs Buggy: Rs 40 delivery defect).',
@@ -123,6 +125,7 @@ Return the observation using the supplied JSON schema.`;
   },
   {
     id: 'delivery-500',
+    code: 'D500',
     category: 'delivery',
     name: 'Journey C: Delivery Boundary Above (Rs 500)',
     description: 'Adds 2 Margherita Pizzas + 2 Extra Dips (subtotal Rs 500). Evaluates that free delivery is awarded above the threshold in both modes.',
@@ -160,6 +163,7 @@ Return the observation using the supplied JSON schema.`;
   },
   {
     id: 'coupon-cap-600',
+    code: 'C600',
     category: 'coupon',
     name: 'Journey D: Coupon Cap Audit (Rs 600 + WELCOME20)',
     description: 'Adds 2 Family Combos + 2 Extra Dips (subtotal Rs 600) and applies WELCOME20. Evaluates the Rs 100 maximum discount cap (Fixed: Rs 100 capped vs Buggy: Rs 120 uncapped discount defect).',
@@ -198,6 +202,7 @@ Return the observation using the supplied JSON schema.`;
   },
   {
     id: 'min-order-99',
+    code: 'M099',
     category: 'minimum-order',
     name: 'Journey E: Minimum Order Audit (Rs 99 Veg Burger)',
     description: 'Adds 1 Veg Burger (subtotal Rs 99) with no coupon and attempts to checkout. Evaluates the "No minimum order" policy (Fixed: checkout allowed vs Buggy: checkout blocked defect).',
@@ -237,7 +242,12 @@ Return the observation using the supplied JSON schema.`;
 ];
 
 function getJourneyById(id) {
-  return JOURNEYS.find(j => j.id === id) || null;
+  if (!id) return null;
+  const normalized = String(id).toLowerCase().trim();
+  return JOURNEYS.find(j => 
+    j.id.toLowerCase() === normalized || 
+    (j.code && j.code.toLowerCase() === normalized)
+  ) || null;
 }
 
 function getJourneysByCategory(category) {
