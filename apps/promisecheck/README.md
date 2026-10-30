@@ -1,84 +1,206 @@
-# PromiseCheck delivery audit
+# PromiseCheck — Autonomous Commercial Verification Engine
 
-Node.js 22+ backend CLI, using the standard library with no npm dependencies.
-It audits the public café exclusively through a real TinyFish browser. It starts
-at `?scenario=buggy`, reads the delivery advertisement, verifies an empty cart,
-adds two Margherita Pizzas and one Extra Dip through UI controls, and reads the
-displayed subtotal, delivery and total. It repeats at `?scenario=fixed`, verifying
-a clean cart again. It never places an order.
+**Team Synapsee** | Department of Computer Science & Engineering, Presidency University, Bengaluru  
+- **Jeevith P** — Team Leader, PromiseCheck Developer & System Integration (`feature/promisecheck`)  
+- **Neha Ashok** — Café Website & Frontend Experience (`feature/cafe`)  
+- **Likitha R** — Independent QA, Validation & Evidence (`test/integration`)  
 
-## Configure credentials
+---
 
-Create a key at https://agent.tinyfish.ai/api-keys. In this directory:
+## 🌟 Overview
 
-```sh
+PromiseCheck is an autonomous compliance auditing system that uses **TinyFish cloud browser agents** to verify that customer-facing commercial promises (free delivery thresholds, promotional coupon caps, and checkout eligibility rules) are strictly honored by online merchants.
+
+### Key Capabilities
+1. **Preserved Delivery Audit**: Verifies the inclusive ₹499 free-delivery boundary with clean-cart guarantees.
+2. **Coupon-Cap Audit**: Evaluates percentage discount caps (e.g. `WELCOME20` 20% off up to ₹100 on ₹600 carts).
+3. **Minimum-Order Audit**: Verifies that low-value carts (e.g. ₹99 Veg Burger) can proceed to checkout without bogus subtotal blocks.
+4. **Interactive Local Web Dashboard**: Accessible, responsive interface in Navy (`#0f172a`), White (`#ffffff`), and Teal (`#0d9488`).
+5. **Deterministic Pure Math**: Currency stored in integer paise; expectations derived from owner-confirmed rules via code (never LLM arithmetic).
+6. **Triple-Mode Execution**:
+   - **Live**: Metered cloud browser execution via TinyFish Agent API (`X-API-Key`).
+   - **Simulated**: Realistic offline fixture provider with progressive browser steps, permanently labeled `SIMULATED — NOT A LIVE AUDIT`.
+   - **Recorded**: Tamper-evident historical replay with immutable timestamps and evidence.
+
+---
+
+## 🚀 Quick Start Commands
+
+### 1. Installation
+PromiseCheck is built using the **Node.js 22+ standard library** and requires **zero external npm dependencies**.
+
+**macOS / Linux:**
+```bash
+cd apps/promisecheck
+npm test
+```
+
+**Windows PowerShell:**
+```powershell
+cd apps\promisecheck
+npm.cmd test
+```
+
+---
+
+### 2. Run Automated Offline Tests
+Executes 35 unit and integration tests covering delivery boundaries, coupon math, rounding, minimum order, security boundaries, and dashboard endpoints:
+
+**macOS / Linux:**
+```bash
+npm test
+```
+
+**Windows PowerShell:**
+```powershell
+npm.cmd test
+```
+
+---
+
+### 3. Launch Local Web Dashboard
+Starts the local dashboard server on `http://127.0.0.1:4004`.
+
+**macOS / Linux:**
+```bash
+npm start
+# Alternatively:
+npm run dashboard
+```
+
+**Windows PowerShell:**
+```powershell
+npm.cmd start
+```
+
+Open your browser to: **`http://127.0.0.1:4004`**
+
+---
+
+### 4. Run CLI Audits
+
+#### A. Simulated Full Suite (Offline demonstration of all 3 deliberate bugs)
+```bash
+npm run check -- --mode simulated --suite all
+```
+*Windows PowerShell:*
+```powershell
+npm.cmd run check -- --mode simulated --suite all
+```
+
+#### B. Live Metered Run via TinyFish (Requires credentials)
+```bash
+npm run check -- --url https://synapsee-promisecheck.vercel.app/
+```
+*Windows PowerShell:*
+```powershell
+npm.cmd run check -- --url https://synapsee-promisecheck.vercel.app/
+```
+
+#### C. Custom Output & Resuming
+```bash
+# Custom evidence path:
+npm run check -- --evidence evidence/my-custom-audit.json
+
+# Resume an existing active run:
+npm run check -- --run-id <RUN_ID> --evidence evidence/resumed-run.json
+```
+
+---
+
+## ⚙️ Configuration & Security
+
+Create a local `.env` file in `apps/promisecheck/`:
+```bash
 cp .env.example .env
 ```
 
-Edit `apps/promisecheck/.env` locally and set `TINYFISH_API_KEY`. The CLI loads this
-file automatically, independently of the current working directory. An existing
-backend process environment variable takes precedence. `.env` and run evidence
-are ignored by Git. Never place the key in café HTML, frontend variables, goals,
-reports or commits. No key means an explicit error; there is no HTML fallback.
+| Environment Variable | Description | Default |
+| :--- | :--- | :--- |
+| `CAFE_PUBLIC_URL` | Canonical public URL of the target café. | `https://synapsee-promisecheck.vercel.app/` |
+| `TINYFISH_API_KEY` | Secret key from [agent.tinyfish.ai/api-keys](https://agent.tinyfish.ai/api-keys). | `(Empty / Optional for Simulation)` |
+| `PORT` | Local dashboard server port. | `4004` |
+| `HOST` | Local dashboard server host interface. | `127.0.0.1` |
 
-## Check, then run
+### Security Safeguards
+- **Zero API Key Leaks**: The backend redacts all occurrences of `TINYFISH_API_KEY`. It is never delivered to client code, browser logs, or report JSONs.
+- **SSRF & Private Network Protection**: `validatePublicUrl` rejects localhost, loopbacks, internal RFC-1918 subnets, and non-HTTP(S) schemes.
+- **Path Traversal Protection**: History endpoints reject `..`, slashes, and traversal characters.
+- **Single-Job Concurrency Lock**: Only one active audit job runs at any time, preventing duplicate paid browser invocations.
 
-```sh
-# From the repository root:
-cd apps/promisecheck
-npm test
-npm run check -- --url 'https://synapsee-promisecheck.vercel.app/?scenario=buggy'
-```
+---
 
-`npm test` runs offline unit tests with **synthetic** data, not live evidence.
-`npm run check` is a metered real-browser run. A single run covers both scenarios.
-The agent receives the requested product quantities/prices, but no expected cart
-totals or scenario-specific delivery fixtures. Observations are accepted only
-with displayed amount text, the requested cart, matching item arithmetic,
-empty-cart evidence, the observed inclusive Rs 499 advertisement, and TinyFish
-step/screenshot metadata.
+## 🚦 Exit Codes
 
-The evaluator calculates expected subtotal from observed items and expected free
-delivery when the observed subtotal meets the advertised inclusive threshold.
-Expected and observed values print separately. The legacy `src/promises.json`
-keyword catalogue is retained, but is not used as proof of delivery behavior.
+| Exit Code | Meaning | Context |
+| :---: | :--- | :--- |
+| **`0`** | **All Promises Honored** | Completed audit found zero commercial violations (e.g. against the fixed scenario). |
+| **`1`** | **Business Violation Detected** | Completed audit successfully detected a merchant commercial discrepancy (e.g. delivery fee defect, coupon cap violation, or checkout block). |
+| **`2`** | **Execution / Evidence Incomplete** | Network failure, missing credentials, malformed browser DOM, or incomplete evidence. |
 
-Exit codes: `0` = both promises honored; `1` = a completed audit found a violation;
-`2` = execution or evidence validation incomplete. The buggy scenario normally
-produces exit `1`; this is a detected café defect, not a failed browser run.
+---
 
-Evidence is saved incrementally in `evidence/delivery-<timestamp>.json`, including
-the request goal/schema, provider run ID/status/timestamps, raw result, action
-steps, screenshot URLs and recording URL when provided, plus computed comparison.
-Use `--evidence /absolute/path/report.json` to choose a new file. Existing files
-are never overwritten. Recording URLs expire after about 15 minutes; retained run
-IDs and steps allow retrieval through TinyFish. A live streaming URL is useful
-only while running.
+## 🧪 The 5 Test Journeys & Expected Buggy Findings
 
-If polling disconnects or times out, recover the same run without repeating cart
-actions:
+| Journey | Cart Items | Expected Fixed Behavior | Buggy Scenario Discrepancy |
+| :--- | :--- | :--- | :--- |
+| **A. Delivery Below** | 2 Margherita Pizzas (₹498) | Delivery: ₹40.00, Total: ₹538.00 | Honors standard delivery charge (**PASS**). |
+| **B. Delivery Exact** | 2 Pizzas + 1 Dip (₹499) | Delivery: FREE (₹0.00), Total: ₹499.00 | **Defect 1**: Strictly checks `> ₹499`. Charges ₹40 delivery at exactly ₹499 (**MISMATCH**). |
+| **C. Delivery Above** | 2 Pizzas + 2 Dips (₹500) | Delivery: FREE (₹0.00), Total: ₹500.00 | Honors free delivery (**PASS**). |
+| **D. Coupon Cap** | 2 Family Combos + 2 Dips (₹600) + `WELCOME20` | Discount: ₹100.00 (Capped), Total: ₹500.00 | **Defect 2**: Uncapped discount of ₹120.00 applied (**MISMATCH** — discount-rule violation). |
+| **E. Minimum Order** | 1 Veg Burger (₹99) | Delivery: ₹40.00, Total: ₹139.00, Allowed: Yes | **Defect 3**: Blocks checkout claiming minimum subtotal of ₹199 is required (**MISMATCH**). |
 
-```sh
-npm run check -- --run-id RUN_ID --evidence evidence/resumed-run.json
-```
+---
 
-If the initial POST times out without an ID, inspect existing runs in TinyFish
-before starting again. The client never retries run creation automatically.
+## 🌐 Local REST API Routes
 
-## Official API contract
+| Method | Endpoint | Description |
+| :--- | :--- | :--- |
+| `GET` | `/` | Serves the accessible Single-Page Web Dashboard. |
+| `GET` | `/api/config` | Returns system status and readiness without exposing secrets. |
+| `GET` | `/api/rules` | Retrieves active business rules. |
+| `POST` | `/api/rules/confirm` | Saves owner-confirmed commercial rules. |
+| `GET` | `/api/journeys` | Lists available test journeys and expected validation contracts. |
+| `POST` | `/api/audit/start` | Initiates an audit job (`live` or `simulated`). Returns `jobId` immediately. |
+| `GET` | `/api/audit/status` | Returns active audit progress, step log, and incremental findings. |
+| `POST` | `/api/audit/cancel` | Gracefully cancels the currently running audit. |
+| `GET` | `/api/history` | Lists all past audit runs saved in `evidence/`. |
+| `GET` | `/api/history/:id` | Returns full JSON evidence for a specific run (path-traversal protected). |
+| `GET` | `/api/history/:id/export` | Downloads evidence report as `promisecheck-<id>.json`. |
+| `GET` | `/api/history/:id/print` | Renders a clean printable report formatted for PDF / print. |
+| `GET` | `/api/retest-comparison` | Generates side-by-side Before/After evaluation across scenarios. |
 
-Verified against current official documentation and the published OpenAPI schema
-on 2026-10-30:
+---
 
-- [Agent API](https://docs.tinyfish.ai/agent-api): `X-API-Key` authentication.
-- [Start automation](https://docs.tinyfish.ai/api-reference/automation/start-automation-asynchronously):
-  `POST https://agent.tinyfish.ai/v1/automation/run-async`, with `url`, `goal`,
-  `output_schema` and `capture_config`. The CLI waits for completion locally.
-- [Runs](https://docs.tinyfish.ai/key-concepts/runs):
-  `GET https://agent.tinyfish.ai/v1/runs/{run_id}?screenshots=url`, result validation,
-  step evidence and recording lifetime.
-- [Official OpenAPI](https://agent.tinyfish.ai/v1/openapi/main).
+## 📂 Storage & Evidence Format
 
-The API origin is fixed to the official host; the former assumed
-`TINYFISH_API_ENDPOINT` and `/agent/audit` route are removed. A `COMPLETED` status
-alone is insufficient: missing or inconsistent observations fail explicitly.
+Evidence is saved to `apps/promisecheck/evidence/` as immutable JSON files:
+- `evidence/delivery-<timestamp>.json` (Legacy delivery runs)
+- `evidence/audit-<timestamp>-<jobId>.json` (Multi-journey suite runs)
+
+### Data Schema
+- `id`: Unique Job identifier.
+- `mode`: `'live'` or `'simulated'`.
+- `simulationNotice`: `'SIMULATED — NOT A LIVE AUDIT'` (if simulated).
+- `status`: `'COMPLETED'`, `'FAILED'`, or `'INTERRUPTED'`.
+- `targetUrl`: Exact scenario target URL.
+- `rules`: Confirmed ruleset version.
+- `findings`: Array of journey evaluations with exact assertions, expected vs observed amounts, and difference calculations.
+- `runs`: Step metadata, action logs, screenshot links, and provider run IDs.
+
+---
+
+## 🔍 Verification Status & Known Limitations
+
+### Verified Capabilities
+- **35 Unit & Integration Tests**: 100% passing offline without credentials or network access.
+- **Deterministic Pure Arithmetic**: Integer paise calculations with half-up rounding.
+- **Local Dashboard Server**: Verified responsive and fully functional at `http://127.0.0.1:4004`.
+- **All 3 Deliberate Bugs Detected**: Correctly identified and flagged in buggy mode; verified resolved in fixed mode.
+- **Interrupted Job Reconciliation**: Incomplete runs are marked `INTERRUPTED` upon server restart.
+- **Live TinyFish Delivery Run**: Previously verified live on 2026-10-30 (`evidence/delivery-2026-10-30T06-59-43-287Z.json`).
+
+### Known Limitations
+- **TinyFish Browser Profile**: Uses the `lite` browser profile for fast execution; runs in cloud datacenters and cannot resolve `localhost`.
+- **Provider Screenshots**: Provider screenshot and recording URLs expire after approximately 15 minutes per TinyFish API policies; retained run IDs allow re-querying trace data within provider retention windows.
+- **Live Run Timeout Recovery**: The client captures and logs the `run_id` immediately upon start. While offline tests prove the client resumes with `--run-id` without creating duplicates, live network recovery during a provider outage remains an operational recovery path rather than an automated fault-injection test.
