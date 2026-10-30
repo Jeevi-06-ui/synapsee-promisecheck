@@ -244,3 +244,80 @@ test('missing clean-cart confirmation makes evidence inconclusive', () => {
   assert.equal(res.verdict, 'INCONCLUSIVE');
   assert.match(res.explanation, /Cart was not confirmed cleared/i);
 });
+
+// 10. Regression tests: validateObservationEvidence rejects label-only text
+test('validateObservationEvidence rejects label-only subtotalText ("Food Subtotal")', () => {
+  const journey = getJourneyById('delivery-499');
+  const obs = {
+    cartCleared: true,
+    items: [
+      { name: 'Margherita Pizza', quantity: 2, unitPrice: 249 },
+      { name: 'Extra Dip', quantity: 1, unitPrice: 1 }
+    ],
+    subtotal: 499,
+    delivery: 0,
+    subtotalText: 'Food Subtotal',
+    deliveryText: 'FREE'
+  };
+  const result = validateObservationEvidence(obs, journey);
+  assert.equal(result.valid, false);
+  assert.match(result.reason, /Observed subtotalText "Food Subtotal" contains row label/);
+});
+
+test('validateObservationEvidence rejects label-only deliveryText ("Delivery Fee")', () => {
+  const journey = getJourneyById('delivery-499');
+  const obs = {
+    cartCleared: true,
+    items: [
+      { name: 'Margherita Pizza', quantity: 2, unitPrice: 249 },
+      { name: 'Extra Dip', quantity: 1, unitPrice: 1 }
+    ],
+    subtotal: 499,
+    delivery: 40,
+    subtotalText: '₹499.00',
+    deliveryText: 'Delivery Fee'
+  };
+  const result = validateObservationEvidence(obs, journey);
+  assert.equal(result.valid, false);
+  assert.match(result.reason, /Observed deliveryText "Delivery Fee" contains row label/);
+});
+
+test('validateObservationEvidence rejects label-only totalText ("Total Payable")', () => {
+  const journey = getJourneyById('delivery-499');
+  const obs = {
+    cartCleared: true,
+    items: [
+      { name: 'Margherita Pizza', quantity: 2, unitPrice: 249 },
+      { name: 'Extra Dip', quantity: 1, unitPrice: 1 }
+    ],
+    subtotal: 499,
+    delivery: 40,
+    total: 539,
+    subtotalText: '₹499.00',
+    deliveryText: '₹40.00',
+    totalText: 'Total Payable'
+  };
+  const result = validateObservationEvidence(obs, journey);
+  assert.equal(result.valid, false);
+  assert.match(result.reason, /Observed totalText "Total Payable" contains row label/);
+});
+
+test('validateObservationEvidence rejects label-only discountText ("Discount")', () => {
+  const journey = getJourneyById('coupon-cap-600');
+  const obs = {
+    cartCleared: true,
+    items: [
+      { name: 'Family Combo', quantity: 2, unitPrice: 299 },
+      { name: 'Extra Dip', quantity: 2, unitPrice: 1 }
+    ],
+    subtotal: 600,
+    discount: 100,
+    delivery: 0,
+    subtotalText: '₹600.00',
+    discountText: 'Discount',
+    deliveryText: 'FREE'
+  };
+  const result = validateObservationEvidence(obs, journey);
+  assert.equal(result.valid, false);
+  assert.match(result.reason, /Observed discountText "Discount" contains row label/);
+});

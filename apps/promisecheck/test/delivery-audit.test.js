@@ -115,3 +115,69 @@ test('incomplete, fabricated text, wrong cart, or missing clean-cart evidence is
     assert.throws(() => evaluateRun(run, target));
   }
 });
+
+// Regression tests for label-only text rejection (audit-2026-10-30T09-37-01-100Z.json)
+test('regression: reject label-only text in subtotalText ("Food Subtotal")', () => {
+  const run = sampleRun();
+  run.result.scenarios[0].subtotalText = 'Food Subtotal';
+  assert.throws(
+    () => evaluateRun(run, target),
+    /Displayed subtotal text in buggy contains row label "Food Subtotal" instead of monetary value/
+  );
+});
+
+test('regression: reject label-only text in deliveryText ("Delivery Fee")', () => {
+  const run = sampleRun();
+  run.result.scenarios[0].deliveryText = 'Delivery Fee';
+  assert.throws(
+    () => evaluateRun(run, target),
+    /Displayed delivery text in buggy contains row label "Delivery Fee" instead of monetary value/
+  );
+});
+
+test('regression: reject label-only text in totalText ("Total Payable")', () => {
+  const run = sampleRun();
+  run.result.scenarios[0].totalText = 'Total Payable';
+  assert.throws(
+    () => evaluateRun(run, target),
+    /Displayed total text in buggy contains row label "Total Payable" instead of monetary value/
+  );
+});
+
+test('regression: exact failure payload from run 72210212 is rejected', () => {
+  const run = sampleRun();
+  // Matching audit-2026-10-30T09-37-01-100Z.json where agent returned row labels
+  run.result.scenarios[0].subtotalText = 'Food Subtotal';
+  run.result.scenarios[0].deliveryText = 'Delivery Fee';
+  run.result.scenarios[0].totalText = 'Total Payable';
+  assert.throws(
+    () => evaluateRun(run, target),
+    /contains row label/
+  );
+});
+
+test('null numeric values or unobserved interaction errors are rejected without guessing', () => {
+  const run = sampleRun();
+  run.result.scenarios[0].subtotal = null;
+  run.result.scenarios[0].error = 'Could not locate order summary';
+  assert.throws(() => evaluateRun(run, target), /Incomplete browser interaction evidence for buggy/);
+});
+
+test('outputSchema defines explicit descriptions requiring values and forbidding row labels', () => {
+  const props = outputSchema.properties.scenarios.items.properties;
+  assert.ok(props.subtotalText.description.includes('NEVER the row label "Food Subtotal"'));
+  assert.ok(props.deliveryText.description.includes('NEVER the row label "Delivery Fee"'));
+  assert.ok(props.totalText.description.includes('NEVER the row label "Total Payable"'));
+  assert.ok(props.subtotal.description.includes('Must be null if value cannot be observed'));
+  assert.ok(props.delivery.description.includes('Must be null if value cannot be observed'));
+  assert.ok(props.total.description.includes('Must be null if value cannot be observed'));
+});
+
+test('buildGoal includes explicit summary row navigation and label exclusion instructions', () => {
+  const goal = buildGoal('https://synapsee-promisecheck.vercel.app');
+  assert.ok(goal.includes('NEVER record the row label "Food Subtotal"'));
+  assert.ok(goal.includes('NEVER record the row label "Delivery Fee"'));
+  assert.ok(goal.includes('NEVER record the row label "Total Payable"'));
+  assert.ok(goal.includes('record null for that numeric field'));
+  assert.ok(goal.includes('NOT the row label on the left'));
+});

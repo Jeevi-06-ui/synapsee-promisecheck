@@ -44,6 +44,26 @@ function validateObservationEvidence(obs, journey) {
     }
   }
 
+  // Reject row labels mistakenly captured as monetary text
+  const labelPatterns = {
+    subtotal: /^(food\s+)?subtotal\s*:?$/i,
+    delivery: /^delivery(\s+fee|\s+charge)?\s*:?$/i,
+    discount: /^discount\s*:?$/i,
+    total: /^(order\s+total|total\s+payable|total)\s*:?$/i
+  };
+
+  for (const [key, pattern] of Object.entries(labelPatterns)) {
+    const textVal = obs[`${key}Text`];
+    if (typeof textVal === 'string' && textVal.trim()) {
+      if (pattern.test(textVal.trim())) {
+        return {
+          valid: false,
+          reason: `Observed ${key}Text "${textVal}" contains row label instead of displayed monetary value.`
+        };
+      }
+    }
+  }
+
   // Validate amount fields
   // If checkout is blocked, total might or might not be available, but subtotal and delivery should be present
   if (typeof obs.subtotal !== 'number' || Number.isNaN(obs.subtotal) || obs.subtotal < 0) {

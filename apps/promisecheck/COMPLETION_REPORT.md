@@ -30,7 +30,7 @@
 > **Summary of Readiness:**
 > - **Core Engine & Architecture:** **100% Complete**. All 5 customer journeys (`D498`, `D499`, `D500`, `C600`, `M099`) implemented with integer paise deterministic math.
 > - **Local Web Dashboard:** **100% Complete & Verified**. Running at `http://127.0.0.1:4004` using Node.js 22+ standard library with zero external runtime dependencies.
-> - **Automated Test Suite:** **35/35 passing offline tests** in `apps/promisecheck/test/` (~2.1s runtime).
+> - **Automated Test Suite:** **46/46 passing offline tests** in `apps/promisecheck/test/` (~2.1s runtime, including regression suites for TinyFish label-only extraction rejection).
 > - **Live Cloud Verification:** Real TinyFish cloud audit verified (`run_id: 989f0f0e-62ee-451c-841a-26c4697a06b0`, 31 steps) catching the delivery overcharge.
 > - **Submission Package:** All 8 required documents prepared in `apps/promisecheck/submission/`.
 > - **Remaining Limitations:** Tailored to Synapsee Café demonstration contract; cloud screenshots expire after ~15 mins per TinyFish policy; final organizer portal credentials (Team ID, portal URL) to be supplied by user at portal form submission.
@@ -137,3 +137,5 @@ When submitting on the official portal, please furnish:
 3. **Registered Student Email Addresses** for Jeevith P, Neha Ashok, and Likitha R
 4. **Recorded Video Demo Link** (if required by organizers)
 5. **Slide Deck PDF / Link** (exported from `SLIDE_OUTLINE.md`)
+
+
